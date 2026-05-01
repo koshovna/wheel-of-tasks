@@ -37,6 +37,8 @@ public class WheelServer {
         server.createContext("/api/tasks/delete", new DeleteTaskHandler());
         server.createContext("/api/center", new CenterImageHandler());
         server.createContext("/", new StaticHandler());
+        server.createContext("/api/tasks/clear", new ClearTasksHandler());
+        server.createContext("/api/random-gif", new RandomGifHandler());
 
         server.setExecutor(null);
         server.start();
@@ -191,16 +193,49 @@ public class WheelServer {
             try {
                 List<Task> tasks = loadTasks();
 
-                if (tasks.size() <= 2 && !force) {
-                    sendJson(exchange, "{\"success\":false,\"error\":\"min 2 tasks\"}");
-                    return;
-                }
-
                 tasks.removeIf(t -> t.id.equals(id));
                 saveTasks(tasks);
                 sendJson(exchange, "{\"success\":true,\"data\":null}");
             } finally {
                 FILE_LOCK.unlock();
+            }
+        }
+    }
+
+    static class ClearTasksHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (rejectWrongMethod(exchange, "POST")) return;
+            FILE_LOCK.lock();
+            try {
+                saveTasks(new ArrayList<>());
+                sendJson(exchange, "{\"success\":true,\"data\":null}");
+            } finally {
+                FILE_LOCK.unlock();
+            }
+        }
+    }
+
+    static class RandomGifHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (rejectWrongMethod(exchange, "GET")) return;
+
+            File dir = new File("gifs");
+            File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".gif"));
+
+            if (files == null || files.length == 0) {
+                exchange.sendResponseHeaders(404, -1);
+                return;
+            }
+
+            File gif = files[new Random().nextInt(files.length)];
+            addCorsHeaders(exchange);
+            exchange.getResponseHeaders().set("Content-Type", "image/gif");
+            exchange.getResponseHeaders().set("Cache-Control", "no-cache");
+            exchange.sendResponseHeaders(200, gif.length());
+            try (OutputStream os = exchange.getResponseBody()) {
+                Files.copy(gif.toPath(), os);
             }
         }
     }

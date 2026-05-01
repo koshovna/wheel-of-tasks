@@ -23,24 +23,43 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 50px 40px;
+            padding: 20px 40px;
+        }
+
+        .clear-btn {
+            margin-left: auto;
+            background: transparent;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 6px 14px;
+            transition: all 0.2s;
+        }
+        .clear-btn:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #ef4444;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 60px;
+            margin-bottom: 80px;
         }
 
         .header h1 {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: 700;
             color: #4a5568;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
 
         .header p {
             color: #718096;
-            font-size: 1.4rem;
+            font-size: 1.1rem;
         }
 
         .main-layout {
@@ -139,7 +158,7 @@
             display: flex;
             align-items: center;
             gap: 20px;
-            padding: 22px 34px;
+            padding: 14px 24px;
             background: white;
             border-radius: 22px;
             box-shadow: 0 4px 18px rgba(0, 0, 0, 0.07);
@@ -148,7 +167,7 @@
         .time-control label {
             font-weight: 600;
             color: #4a5568;
-            font-size: 1.2rem;
+            font-size: 1rem;
             white-space: nowrap;
         }
 
@@ -175,7 +194,7 @@
             font-weight: 700;
             color: #6366f1;
             min-width: 65px;
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
 
         .tasks-panel {
@@ -190,7 +209,7 @@
             align-items: center;
             gap: 14px;
             margin-bottom: 32px;
-            padding-bottom: 28px;
+            padding-bottom: 16px;
             border-bottom: 1px solid #e2e8f0;
         }
 
@@ -212,7 +231,7 @@
         .add-form {
             display: flex;
             gap: 14px;
-            margin-bottom: 28px;
+            margin-bottom: 24px;
         }
 
         .add-form input {
@@ -388,14 +407,13 @@
         }
 
         .modal-icon {
-            width: 90px;
-            height: 90px;
-            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-            border-radius: 50%;
+            background: none;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 28px;
+            width: 200px;
+            height: 200px;
             font-size: 2.6rem;
         }
 
@@ -479,6 +497,7 @@
                 <div class="panel-header">
                     <h2>Список задач</h2>
                     <span class="task-count" id="taskCount">0</span>
+                    <button class="clear-btn" id="clearBtn">🗑 Очистить</button>
                 </div>
 
                 <div class="add-form">
@@ -494,11 +513,14 @@
 
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
-            <div class="modal-icon">👉</div>
-            <h2>Выбрана задача:</h2>
+            <div class="modal-icon">
+                <img id="modalGif" src="" alt="" width="200" height="200"
+                     style="object-fit: cover; border-radius: 16px;">
+            </div>
+            <h2>Выпала задача:</h2>
             <div class="result-task" id="resultTask"></div>
             <div class="modal-buttons">
-                <button class="modal-close" id="modalClose">Понятно</button>
+                <button class="modal-close" id="modalClose">Делаем</button>
                 <button class="modal-delete" id="modalDelete">Удалить задачу</button>
             </div>
         </div>
@@ -585,12 +607,12 @@
             }
         }
 
-        async function deleteTask(id, force = false) {
+        async function deleteTask(id) {
             try {
                 const res = await fetch('/api/tasks/delete', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({id, force})
+                    body: JSON.stringify({id, force: true})
                 });
                 const json = await res.json();
                 if (json.success) {
@@ -605,6 +627,23 @@
                 return false;
             }
         }
+
+        async function clearAllTasks() {
+            if (!confirm('Удалить все задачи?')) return;
+            try {
+                const res = await fetch('/api/tasks/clear', { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    tasks = [];
+                    updateTasksList();
+                    drawWheel();
+                }
+            } catch (e) {
+                console.error('Ошибка очистки:', e);
+            }
+        }
+
+        document.getElementById('clearBtn').addEventListener('click', clearAllTasks);
 
         async function spinWheel() {
             if (isSpinning || tasks.length < 2) return;
@@ -655,6 +694,7 @@
                     drawWheel();
                     setTimeout(() => {
                         resultTask.textContent = winnerText;
+                        document.getElementById('modalGif').src = '/api/random-gif?t=' + Date.now();
                         modalOverlay.classList.add('active');
                         pointer.classList.add('winner');
                         if (winnerIndex >= 0) {
@@ -723,9 +763,9 @@
                 ctx.rotate(startAngle + segmentAngle / 2);
                 ctx.textAlign = 'right';
                 ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 22px Nunito';
+                ctx.font = 'bold 18px Nunito';
 
-                const maxWidth = textRadius * 0.88;
+                const maxWidth = textRadius * 0.75;
                 let text = task.text;
 
                 while (ctx.measureText(text).width > maxWidth && text.length > 6) {
@@ -796,7 +836,7 @@
                 });
             }
 
-            minNote.style.opacity = tasks.length >= 2 ? '0' : '1';
+            minNote.style.display = tasks.length >= 2 ? 'none' : 'block';
             spinBtn.disabled = tasks.length < 2;
         }
 
@@ -812,11 +852,9 @@
         }
 
         async function deleteWinner() {
-            if (currentWinnerId && tasks.length > 2) {
-                await deleteTask(currentWinnerId, true);
+            if (currentWinnerId) {
+                await deleteTask(currentWinnerId);
                 currentWinnerId = null;
-                closeModal();
-            } else if (currentWinnerId) {
                 closeModal();
             }
         }
